@@ -21,7 +21,7 @@ impl GitManager {
 
         let repo = Repository::clone(&url, destination)?;
 
-        if let Some(reference) = &source.reference {
+        if let Some(reference) = source.reference() {
             Self::checkout_reference(&repo, reference)?;
         }
 
@@ -38,7 +38,7 @@ impl GitManager {
         let mut remote = repo.find_remote("origin")?;
         remote.fetch(&[] as &[&str], None, None)?;
 
-        if let Some(reference) = &source.reference {
+        if let Some(reference) = source.reference() {
             Self::checkout_reference(&repo, reference)?;
         } else {
             // Checkout default branch
@@ -112,7 +112,7 @@ impl GitManager {
         let url = source.full_url();
         let repo = Repository::clone(&url, temp_path)?;
 
-        if let Some(reference) = &source.reference {
+        if let Some(reference) = source.reference() {
             Self::checkout_reference(&repo, reference)?;
         }
 

@@ -23,29 +23,19 @@ pub async fn init() -> Result<()> {
     Ok(())
 }
 
-pub async fn install(env_name: String) -> Result<()> {
+pub async fn install() -> Result<()> {
     let config = Config::new()?;
     let extensions_config = config.load_extensions_config()?;
-
-    let extensions = extensions_config
-        .get_environment(&env_name)
-        .ok_or_else(|| RexerError::EnvironmentNotFound(env_name.clone()))?;
 
     let current_lock = config.load_lock_file()?;
 
     // Determine what needs to be done
     if let Some(lock_file) = &current_lock {
-        if lock_file.environment == env_name {
-            // Update existing environment
-            update_environment(&config, extensions, lock_file).await?;
-        } else {
-            // Switch environment
-            uninstall_environment(&config, lock_file).await?;
-            install_environment(&config, &env_name, extensions).await?;
-        }
+        // Update existing installation
+        update_installation(&config, &extensions_config, lock_file).await?;
     } else {
         // Fresh install
-        install_environment(&config, &env_name, extensions).await?;
+        install_all_extensions(&config, &extensions_config).await?;
     }
 
     Ok(())
@@ -58,7 +48,7 @@ pub async fn uninstall() -> Result<()> {
         .load_lock_file()?
         .ok_or_else(|| RexerError::LockFileError("No lock file found".to_string()))?;
 
-    uninstall_environment(&config, &lock_file).await?;
+    uninstall_all_extensions(&config, &lock_file).await?;
     config.delete_lock_file()?;
 
     println!("Uninstalled all extensions");
@@ -70,8 +60,7 @@ pub async fn state() -> Result<()> {
 
     match config.load_lock_file()? {
         Some(lock_file) => {
-            println!("Environment: {}", lock_file.environment.green());
-            println!("Extensions:");
+            println!("Installed extensions:");
             for ext in &lock_file.extensions {
                 let type_str = match ext.extension_type {
                     ExtensionType::Plugin => "plugin",
@@ -94,34 +83,6 @@ pub async fn state() -> Result<()> {
     }
 
     Ok(())
-}
-
-pub async fn envs() -> Result<()> {
-    let config = Config::new()?;
-    let extensions_config = config.load_extensions_config()?;
-
-    for (env_name, extensions) in &extensions_config.environments {
-        println!("{}:", env_name.green());
-        for ext in extensions {
-            let type_str = match ext.extension_type {
-                ExtensionType::Plugin => "plugin",
-                ExtensionType::Theme => "theme",
-            };
-            println!(
-                "  {} {} ({})",
-                type_str,
-                ext.name.blue(),
-                ext.source.full_url()
-            );
-        }
-        println!();
-    }
-
-    Ok(())
-}
-
-pub async fn switch(env_name: String) -> Result<()> {
-    install(env_name).await
 }
 
 pub async fn update(extension_names: Vec<String>) -> Result<()> {
@@ -164,16 +125,26 @@ pub async fn reinstall(extension_name: String) -> Result<()> {
         .ok_or_else(|| RexerError::ExtensionNotFound(extension_name.clone()))?;
 
     uninstall_extension(&config, extension).await?;
-    install_extension(
+    
+    let ext_type = extension.extension_type.clone();
+    let commit_hash = install_extension(
         &config,
         &Extension {
             name: extension.name.clone(),
-            extension_type: extension.extension_type.clone(),
             source: extension.source.clone(),
             hooks: None,
         },
+        ext_type,
     )
     .await?;
+
+    // Update lock file with new commit hash
+    let mut updated_lock = lock_file.clone();
+    if let Some(locked_ext) = updated_lock.extensions.iter_mut().find(|e| e.name == extension_name) {
+        locked_ext.commit_hash = Some(commit_hash);
+        locked_ext.installed_at = Utc::now().to_rfc3339();
+    }
+    config.save_lock_file(&updated_lock)?;
 
     println!("Reinstalled {}", extension_name.blue());
     Ok(())
@@ -193,20 +164,19 @@ pub async fn edit() -> Result<()> {
     Ok(())
 }
 
-async fn install_environment(
+async fn install_all_extensions(
     config: &Config,
-    env_name: &str,
-    extensions: &[Extension],
+    extensions_config: &crate::extension::ExtensionsConfig,
 ) -> Result<()> {
     let mut locked_extensions = Vec::new();
 
-    for extension in extensions {
+    for (extension, ext_type) in extensions_config.all_extensions() {
         println!("Installing {}...", extension.name.blue());
-        let commit_hash = install_extension(config, extension).await?;
+        let commit_hash = install_extension(config, extension, ext_type).await?;
 
         locked_extensions.push(LockedExtension {
             name: extension.name.clone(),
-            extension_type: extension.extension_type.clone(),
+            extension_type: ext_type,
             source: extension.source.clone(),
             commit_hash: Some(commit_hash),
             installed_at: Utc::now().to_rfc3339(),
@@ -214,21 +184,19 @@ async fn install_environment(
     }
 
     let lock_file = LockFile {
-        environment: env_name.to_string(),
         extensions: locked_extensions,
     };
 
     config.save_lock_file(&lock_file)?;
     println!(
-        "Installed {} extensions for environment '{}'",
-        extensions.len(),
-        env_name.green()
+        "Installed {} extensions",
+        lock_file.extensions.len()
     );
 
     Ok(())
 }
 
-async fn uninstall_environment(config: &Config, lock_file: &LockFile) -> Result<()> {
+async fn uninstall_all_extensions(config: &Config, lock_file: &LockFile) -> Result<()> {
     for extension in &lock_file.extensions {
         println!("Uninstalling {}...", extension.name.blue());
         uninstall_extension(config, extension).await?;
@@ -236,19 +204,19 @@ async fn uninstall_environment(config: &Config, lock_file: &LockFile) -> Result<
     Ok(())
 }
 
-async fn update_environment(
+async fn update_installation(
     _config: &Config,
-    _extensions: &[Extension],
+    _extensions_config: &crate::extension::ExtensionsConfig,
     _lock_file: &LockFile,
 ) -> Result<()> {
     // This is a simplified version - in a full implementation, you'd compare
     // the current state with the desired state and only make necessary changes
-    println!("Environment is already installed. Use 'rex update' to update extensions.");
+    println!("Extensions are already installed. Use 'rex update' to update extensions.");
     Ok(())
 }
 
-async fn install_extension(config: &Config, extension: &Extension) -> Result<String> {
-    let dest_dir = match extension.extension_type {
+async fn install_extension(config: &Config, extension: &Extension, ext_type: ExtensionType) -> Result<String> {
+    let dest_dir = match ext_type {
         ExtensionType::Plugin => config.plugins_dir().join(&extension.name),
         ExtensionType::Theme => config.themes_dir().join(&extension.name),
     };
@@ -261,7 +229,7 @@ async fn install_extension(config: &Config, extension: &Extension) -> Result<Str
     let commit_hash = GitManager::clone_or_update(&extension.source, &dest_dir)?;
 
     // For plugins, run bundle install and migrations if applicable
-    if matches!(extension.extension_type, ExtensionType::Plugin) {
+    if matches!(ext_type, ExtensionType::Plugin) {
         run_plugin_setup(&dest_dir, config).await?;
     }
 

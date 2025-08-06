@@ -32,29 +32,12 @@ fn test_init_command() {
         .success()
         .stdout(predicate::str::contains("Created"));
 
-    let config_path = temp_dir.path().join(".extensions.json");
+    let config_path = temp_dir.path().join(".extensions.yml");
     assert!(config_path.exists());
 
     let content = fs::read_to_string(&config_path).unwrap();
-    assert!(content.contains("environments"));
-    assert!(content.contains("default"));
-}
-
-#[test]
-fn test_envs_command_empty() {
-    let temp_dir = TempDir::new().unwrap();
-
-    // First init
-    let mut cmd = Command::cargo_bin("rex").unwrap();
-    cmd.arg("init").current_dir(&temp_dir).assert().success();
-
-    // Then test envs
-    let mut cmd = Command::cargo_bin("rex").unwrap();
-    cmd.arg("envs")
-        .current_dir(&temp_dir)
-        .assert()
-        .success()
-        .stdout(predicate::str::contains("default:"));
+    assert!(content.contains("plugins:"));
+    assert!(content.contains("themes:"));
 }
 
 #[test]
@@ -84,4 +67,16 @@ fn test_init_already_exists() {
         .assert()
         .success()
         .stdout(predicate::str::contains("already exists"));
+}
+
+#[test]
+fn test_install_command_no_config() {
+    let temp_dir = TempDir::new().unwrap();
+
+    let mut cmd = Command::cargo_bin("rex").unwrap();
+    cmd.arg("install")
+        .current_dir(&temp_dir)
+        .assert()
+        .failure()
+        .stderr(predicate::str::contains("ConfigNotFound"));
 }

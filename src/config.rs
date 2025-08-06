@@ -3,7 +3,7 @@ use crate::extension::{ExtensionsConfig, LockFile};
 use std::fs;
 use std::path::PathBuf;
 
-pub const EXTENSIONS_FILE: &str = ".extensions.json";
+pub const EXTENSIONS_FILE: &str = ".extensions.yml";
 pub const LOCK_FILE: &str = ".extensions.lock";
 
 pub struct Config {
@@ -45,14 +45,14 @@ impl Config {
         }
 
         let content = fs::read_to_string(&path)?;
-        let config: ExtensionsConfig = serde_json::from_str(&content)?;
+        let config: ExtensionsConfig = serde_yaml::from_str(&content)?;
         Ok(config)
     }
 
     #[allow(dead_code)]
     pub fn save_extensions_config(&self, config: &ExtensionsConfig) -> Result<()> {
         let path = self.extensions_file_path();
-        let content = serde_json::to_string_pretty(config)?;
+        let content = serde_yaml::to_string(config)?;
         fs::write(&path, content)?;
         Ok(())
     }
@@ -84,12 +84,24 @@ impl Config {
     }
 
     pub fn create_initial_config(&self) -> Result<()> {
-        // Add example configuration
-        let example_content = r#"{
-  "environments": {
-    "default": []
-  }
-}"#;
+        // Add example configuration in YAML format
+        let example_content = r#"# Redmine Extensions Configuration
+# Define plugins and themes to be managed by rexer
+
+plugins:
+  # Example plugin from GitHub
+  # - name: redmine_issues_panel
+  #   github:
+  #     repo: "redmica/redmine_issues_panel"
+  #     reference: "v1.0.2"
+
+themes:
+  # Example theme from Git repository  
+  # - name: my_theme
+  #   git:
+  #     url: "https://github.com/user/my_theme.git"
+  #     reference: "main"
+"#;
 
         let path = self.extensions_file_path();
         fs::write(&path, example_content)?;

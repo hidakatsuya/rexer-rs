@@ -21,28 +21,19 @@ pub struct Cli {
 
 #[derive(Subcommand)]
 pub enum Commands {
-    /// Create a new .extensions.json file
+    /// Create a new .extensions.yml file
     Init,
 
-    /// Install the definitions in .extensions.json for the specified environment
-    Install {
-        /// Environment to install (default: "default")
-        env: Option<String>,
-    },
+    /// Install extensions defined in .extensions.yml
+    Install,
 
-    /// Uninstall extensions for the currently installed environment
+    /// Uninstall all currently installed extensions
     Uninstall,
 
     /// Reinstall specific extension
     Reinstall {
         /// Extension name to reinstall
         extension: String,
-    },
-
-    /// Switch to different environment
-    Switch {
-        /// Environment to switch to (default: "default")
-        env: Option<String>,
     },
 
     /// Update extensions to latest versions
@@ -54,10 +45,7 @@ pub enum Commands {
     /// Show current state of installed extensions
     State,
 
-    /// Show list of environments and their extensions
-    Envs,
-
-    /// Edit .extensions.json file
+    /// Edit .extensions.yml file
     Edit,
 
     /// Show version information
@@ -75,19 +63,15 @@ impl Cli {
             std::env::set_var("RUST_LOG", "info");
         }
 
-        let command = self.command.unwrap_or(Commands::Install {
-            env: Some("default".to_string()),
-        });
+        let command = self.command.unwrap_or(Commands::Install);
 
         match command {
             Commands::Init => init().await,
-            Commands::Install { env } => install(env.unwrap_or("default".to_string())).await,
+            Commands::Install => install().await,
             Commands::Uninstall => uninstall().await,
             Commands::Reinstall { extension } => reinstall(extension).await,
-            Commands::Switch { env } => switch(env.unwrap_or("default".to_string())).await,
             Commands::Update { extensions } => update(extensions).await,
             Commands::State => state().await,
-            Commands::Envs => envs().await,
             Commands::Edit => edit().await,
             Commands::Version => {
                 println!("{}", env!("CARGO_PKG_VERSION"));

@@ -15,9 +15,6 @@ pub enum RexerError {
     #[error("Extension not found: {0}")]
     ExtensionNotFound(String),
 
-    #[error("Environment not found: {0}")]
-    EnvironmentNotFound(String),
-
     #[error("Lock file error: {0}")]
     LockFileError(String),
 
@@ -29,6 +26,9 @@ pub enum RexerError {
 
     #[error("JSON error: {0}")]
     JsonError(#[from] serde_json::Error),
+
+    #[error("YAML error: {0}")]
+    YamlError(#[from] serde_yaml::Error),
 
     #[error("Anyhow error: {0}")]
     AnyhowError(#[from] anyhow::Error),

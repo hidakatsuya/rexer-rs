@@ -1,31 +1,20 @@
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Extension {
     pub name: String,
-    pub extension_type: ExtensionType,
+    #[serde(flatten)]
     pub source: Source,
     pub hooks: Option<Hooks>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub enum ExtensionType {
-    Plugin,
-    Theme,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct Source {
-    pub source_type: SourceType,
-    pub url: String,
-    pub reference: Option<String>, // branch, tag, or commit
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub enum SourceType {
-    Git,
-    GitHub,
+#[serde(tag = "source_type")]
+pub enum Source {
+    #[serde(rename = "git")]
+    Git { url: String, reference: Option<String> },
+    #[serde(rename = "github")]
+    GitHub { repo: String, reference: Option<String> },
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -35,40 +24,35 @@ pub struct Hooks {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct Environment {
-    pub name: String,
-    pub extensions: Vec<Extension>,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ExtensionsConfig {
-    pub environments: HashMap<String, Vec<Extension>>,
+    #[serde(default)]
+    pub plugins: Vec<Extension>,
+    #[serde(default)]
+    pub themes: Vec<Extension>,
 }
 
 impl ExtensionsConfig {
-    #[allow(dead_code)]
     pub fn new() -> Self {
         Self {
-            environments: HashMap::new(),
+            plugins: Vec::new(),
+            themes: Vec::new(),
         }
     }
 
-    pub fn get_environment(&self, name: &str) -> Option<&Vec<Extension>> {
-        self.environments.get(name)
+    pub fn all_extensions(&self) -> impl Iterator<Item = (&Extension, ExtensionType)> {
+        self.plugins.iter().map(|e| (e, ExtensionType::Plugin))
+            .chain(self.themes.iter().map(|e| (e, ExtensionType::Theme)))
     }
+}
 
-    #[allow(dead_code)]
-    pub fn add_extension_to_env(&mut self, env_name: &str, extension: Extension) {
-        self.environments
-            .entry(env_name.to_string())
-            .or_default()
-            .push(extension);
-    }
+#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
+pub enum ExtensionType {
+    Plugin,
+    Theme,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct LockFile {
-    pub environment: String,
     pub extensions: Vec<LockedExtension>,
 }
 
@@ -83,15 +67,22 @@ pub struct LockedExtension {
 
 impl Source {
     pub fn full_url(&self) -> String {
-        match self.source_type {
-            SourceType::Git => self.url.clone(),
-            SourceType::GitHub => {
-                if self.url.starts_with("http") {
-                    self.url.clone()
+        match self {
+            Source::Git { url, .. } => url.clone(),
+            Source::GitHub { repo, .. } => {
+                if repo.starts_with("http") {
+                    repo.clone()
                 } else {
-                    format!("https://github.com/{}.git", self.url)
+                    format!("https://github.com/{}.git", repo)
                 }
             }
+        }
+    }
+
+    pub fn reference(&self) -> Option<&String> {
+        match self {
+            Source::Git { reference, .. } => reference.as_ref(),
+            Source::GitHub { reference, .. } => reference.as_ref(),
         }
     }
 }
