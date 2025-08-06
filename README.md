@@ -38,37 +38,22 @@ Run the following command in the root directory of your Redmine application:
 rex init
 ```
 
-This creates a `.extensions.json` file where you can define your extensions:
+This creates a `.extensions.yml` file where you can define your extensions:
 
-```json
-{
-  "environments": {
-    "default": [
-      {
-        "name": "redmine_issues_panel",
-        "extension_type": "Plugin",
-        "source": {
-          "source_type": "GitHub",
-          "url": "redmica/redmine_issues_panel",
-          "reference": "v1.0.2"
-        },
-        "hooks": null
-      }
-    ],
-    "stable": [
-      {
-        "name": "bleuclair_theme",
-        "extension_type": "Theme",
-        "source": {
-          "source_type": "Git",
-          "url": "https://github.com/farend/redmine_theme_farend_bleuclair.git",
-          "reference": "master"
-        },
-        "hooks": null
-      }
-    ]
-  }
-}
+```yaml
+plugins:
+  # Example plugin from GitHub
+  - name: redmine_issues_panel
+    github:
+      repo: "redmica/redmine_issues_panel"
+      tag: "v1.0.2"
+
+themes:
+  # Example theme from Git repository  
+  - name: bleuclair_theme
+    git:
+      url: "https://github.com/farend/redmine_theme_farend_bleuclair.git"
+      branch: "master"
 ```
 
 Then install the extensions:
@@ -128,7 +113,7 @@ rex install
 
 ### Requirements
 
-- Rust 1.70 or later
+- Rust 1.88.0 or later
 - Git
 - OpenSSL development libraries
 

@@ -9,17 +9,26 @@ pub struct Extension {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(tag = "source_type")]
 pub enum Source {
     #[serde(rename = "git")]
     Git {
         url: String,
-        reference: Option<String>,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        branch: Option<String>,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        tag: Option<String>,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        commit: Option<String>,
     },
     #[serde(rename = "github")]
     GitHub {
         repo: String,
-        reference: Option<String>,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        branch: Option<String>,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        tag: Option<String>,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        commit: Option<String>,
     },
 }
 
@@ -80,10 +89,26 @@ impl Source {
         }
     }
 
-    pub fn reference(&self) -> Option<&String> {
+    pub fn reference(&self) -> Option<String> {
         match self {
-            Source::Git { reference, .. } => reference.as_ref(),
-            Source::GitHub { reference, .. } => reference.as_ref(),
+            Source::Git {
+                branch,
+                tag,
+                commit,
+                ..
+            } => branch
+                .clone()
+                .or_else(|| tag.clone())
+                .or_else(|| commit.clone()),
+            Source::GitHub {
+                branch,
+                tag,
+                commit,
+                ..
+            } => branch
+                .clone()
+                .or_else(|| tag.clone())
+                .or_else(|| commit.clone()),
         }
     }
 }

@@ -93,14 +93,14 @@ plugins:
   # - name: redmine_issues_panel
   #   github:
   #     repo: "redmica/redmine_issues_panel"
-  #     reference: "v1.0.2"
+  #     tag: "v1.0.2"
 
 themes:
   # Example theme from Git repository  
   # - name: my_theme
   #   git:
   #     url: "https://github.com/user/my_theme.git"
-  #     reference: "main"
+  #     branch: "main"
 "#;
 
         let path = self.extensions_file_path();

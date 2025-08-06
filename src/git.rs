@@ -22,7 +22,7 @@ impl GitManager {
         let repo = Repository::clone(&url, destination)?;
 
         if let Some(reference) = source.reference() {
-            Self::checkout_reference(&repo, reference)?;
+            Self::checkout_reference(&repo, &reference)?;
         }
 
         Self::get_current_commit_hash(&repo)
@@ -39,7 +39,7 @@ impl GitManager {
         remote.fetch(&[] as &[&str], None, None)?;
 
         if let Some(reference) = source.reference() {
-            Self::checkout_reference(&repo, reference)?;
+            Self::checkout_reference(&repo, &reference)?;
         } else {
             // Checkout default branch
             Self::checkout_default_branch(&repo)?;
@@ -115,7 +115,7 @@ impl GitManager {
         let repo = Repository::clone(&url, temp_path)?;
 
         if let Some(reference) = source.reference() {
-            Self::checkout_reference(&repo, reference)?;
+            Self::checkout_reference(&repo, &reference)?;
         }
 
         Self::get_current_commit_hash(&repo)
