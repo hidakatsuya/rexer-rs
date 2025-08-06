@@ -1,8 +1,7 @@
+use crate::error::{Result, RexerError};
 use crate::extension::{ExtensionsConfig, LockFile};
-use crate::error::{RexerError, Result};
-use serde_json;
 use std::fs;
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 
 pub const EXTENSIONS_FILE: &str = ".extensions.json";
 pub const LOCK_FILE: &str = ".extensions.lock";
@@ -16,65 +15,66 @@ impl Config {
     pub fn new() -> Result<Self> {
         let redmine_root = std::env::current_dir()?;
         let command_prefix = std::env::var("REXER_COMMAND_PREFIX").ok();
-        
+
         Ok(Self {
             command_prefix,
             redmine_root,
         })
     }
-    
+
     pub fn extensions_file_path(&self) -> PathBuf {
         self.redmine_root.join(EXTENSIONS_FILE)
     }
-    
+
     pub fn lock_file_path(&self) -> PathBuf {
         self.redmine_root.join(LOCK_FILE)
     }
-    
+
     pub fn plugins_dir(&self) -> PathBuf {
         self.redmine_root.join("plugins")
     }
-    
+
     pub fn themes_dir(&self) -> PathBuf {
         self.redmine_root.join("public").join("themes")
     }
-    
+
     pub fn load_extensions_config(&self) -> Result<ExtensionsConfig> {
         let path = self.extensions_file_path();
         if !path.exists() {
             return Err(RexerError::ConfigNotFound(path.display().to_string()));
         }
-        
+
         let content = fs::read_to_string(&path)?;
         let config: ExtensionsConfig = serde_json::from_str(&content)?;
         Ok(config)
     }
-    
+
+    #[allow(dead_code)]
     pub fn save_extensions_config(&self, config: &ExtensionsConfig) -> Result<()> {
         let path = self.extensions_file_path();
         let content = serde_json::to_string_pretty(config)?;
         fs::write(&path, content)?;
         Ok(())
     }
-    
+
     pub fn load_lock_file(&self) -> Result<Option<LockFile>> {
         let path = self.lock_file_path();
         if !path.exists() {
             return Ok(None);
         }
-        
+
         let content = fs::read_to_string(&path)?;
         let lock_file: LockFile = serde_json::from_str(&content)?;
         Ok(Some(lock_file))
     }
-    
+
     pub fn save_lock_file(&self, lock_file: &LockFile) -> Result<()> {
         let path = self.lock_file_path();
         let content = serde_json::to_string_pretty(lock_file)?;
         fs::write(&path, content)?;
         Ok(())
     }
-    
+
     pub fn delete_lock_file(&self) -> Result<()> {
         let path = self.lock_file_path();
         if path.exists() {
@@ -82,7 +82,7 @@ impl Config {
         }
         Ok(())
     }
-    
+
     pub fn create_initial_config(&self) -> Result<()> {
         // Add example configuration
         let example_content = r#"{
@@ -90,7 +90,7 @@ impl Config {
     "default": []
   }
 }"#;
-        
+
         let path = self.extensions_file_path();
         fs::write(&path, example_content)?;
         Ok(())

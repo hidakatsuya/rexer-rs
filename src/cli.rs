@@ -1,6 +1,6 @@
-use clap::{Parser, Subcommand};
 use crate::commands::*;
 use crate::error::Result;
+use clap::{Parser, Subcommand};
 
 #[derive(Parser)]
 #[command(name = "rex")]
@@ -9,11 +9,11 @@ use crate::error::Result;
 pub struct Cli {
     #[command(subcommand)]
     pub command: Option<Commands>,
-    
+
     /// Detailed output
     #[arg(short, long, global = true)]
     pub verbose: bool,
-    
+
     /// Minimal output  
     #[arg(short, long, global = true)]
     pub quiet: bool,
@@ -21,45 +21,45 @@ pub struct Cli {
 
 #[derive(Subcommand)]
 pub enum Commands {
-    /// Create a new .extensions.rb file
+    /// Create a new .extensions.json file
     Init,
-    
-    /// Install the definitions in .extensions.rb for the specified environment
+
+    /// Install the definitions in .extensions.json for the specified environment
     Install {
         /// Environment to install (default: "default")
         env: Option<String>,
     },
-    
+
     /// Uninstall extensions for the currently installed environment
     Uninstall,
-    
+
     /// Reinstall specific extension
     Reinstall {
         /// Extension name to reinstall
         extension: String,
     },
-    
+
     /// Switch to different environment
     Switch {
         /// Environment to switch to (default: "default")
         env: Option<String>,
     },
-    
+
     /// Update extensions to latest versions
     Update {
         /// Specific extensions to update (default: all)
         extensions: Vec<String>,
     },
-    
+
     /// Show current state of installed extensions
     State,
-    
+
     /// Show list of environments and their extensions
     Envs,
-    
-    /// Edit .extensions.rb file
+
+    /// Edit .extensions.json file
     Edit,
-    
+
     /// Show version information
     Version,
 }
@@ -74,9 +74,11 @@ impl Cli {
         } else {
             std::env::set_var("RUST_LOG", "info");
         }
-        
-        let command = self.command.unwrap_or(Commands::Install { env: Some("default".to_string()) });
-        
+
+        let command = self.command.unwrap_or(Commands::Install {
+            env: Some("default".to_string()),
+        });
+
         match command {
             Commands::Init => init().await,
             Commands::Install { env } => install(env.unwrap_or("default".to_string())).await,

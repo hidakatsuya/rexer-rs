@@ -46,20 +46,22 @@ pub struct ExtensionsConfig {
 }
 
 impl ExtensionsConfig {
+    #[allow(dead_code)]
     pub fn new() -> Self {
         Self {
             environments: HashMap::new(),
         }
     }
-    
+
     pub fn get_environment(&self, name: &str) -> Option<&Vec<Extension>> {
         self.environments.get(name)
     }
-    
+
+    #[allow(dead_code)]
     pub fn add_extension_to_env(&mut self, env_name: &str, extension: Extension) {
         self.environments
             .entry(env_name.to_string())
-            .or_insert_with(Vec::new)
+            .or_default()
             .push(extension);
     }
 }
