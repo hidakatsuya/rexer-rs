@@ -12,9 +12,15 @@ pub struct Extension {
 #[serde(tag = "source_type")]
 pub enum Source {
     #[serde(rename = "git")]
-    Git { url: String, reference: Option<String> },
+    Git {
+        url: String,
+        reference: Option<String>,
+    },
     #[serde(rename = "github")]
-    GitHub { repo: String, reference: Option<String> },
+    GitHub {
+        repo: String,
+        reference: Option<String>,
+    },
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -32,15 +38,10 @@ pub struct ExtensionsConfig {
 }
 
 impl ExtensionsConfig {
-    pub fn new() -> Self {
-        Self {
-            plugins: Vec::new(),
-            themes: Vec::new(),
-        }
-    }
-
     pub fn all_extensions(&self) -> impl Iterator<Item = (&Extension, ExtensionType)> {
-        self.plugins.iter().map(|e| (e, ExtensionType::Plugin))
+        self.plugins
+            .iter()
+            .map(|e| (e, ExtensionType::Plugin))
             .chain(self.themes.iter().map(|e| (e, ExtensionType::Theme)))
     }
 }
@@ -73,7 +74,7 @@ impl Source {
                 if repo.starts_with("http") {
                     repo.clone()
                 } else {
-                    format!("https://github.com/{}.git", repo)
+                    format!("https://github.com/{repo}.git")
                 }
             }
         }

@@ -125,8 +125,8 @@ pub async fn reinstall(extension_name: String) -> Result<()> {
         .ok_or_else(|| RexerError::ExtensionNotFound(extension_name.clone()))?;
 
     uninstall_extension(&config, extension).await?;
-    
-    let ext_type = extension.extension_type.clone();
+
+    let ext_type = extension.extension_type;
     let commit_hash = install_extension(
         &config,
         &Extension {
@@ -140,7 +140,11 @@ pub async fn reinstall(extension_name: String) -> Result<()> {
 
     // Update lock file with new commit hash
     let mut updated_lock = lock_file.clone();
-    if let Some(locked_ext) = updated_lock.extensions.iter_mut().find(|e| e.name == extension_name) {
+    if let Some(locked_ext) = updated_lock
+        .extensions
+        .iter_mut()
+        .find(|e| e.name == extension_name)
+    {
         locked_ext.commit_hash = Some(commit_hash);
         locked_ext.installed_at = Utc::now().to_rfc3339();
     }
@@ -188,10 +192,7 @@ async fn install_all_extensions(
     };
 
     config.save_lock_file(&lock_file)?;
-    println!(
-        "Installed {} extensions",
-        lock_file.extensions.len()
-    );
+    println!("Installed {} extensions", lock_file.extensions.len());
 
     Ok(())
 }
@@ -215,7 +216,11 @@ async fn update_installation(
     Ok(())
 }
 
-async fn install_extension(config: &Config, extension: &Extension, ext_type: ExtensionType) -> Result<String> {
+async fn install_extension(
+    config: &Config,
+    extension: &Extension,
+    ext_type: ExtensionType,
+) -> Result<String> {
     let dest_dir = match ext_type {
         ExtensionType::Plugin => config.plugins_dir().join(&extension.name),
         ExtensionType::Theme => config.themes_dir().join(&extension.name),
@@ -335,7 +340,9 @@ fn run_command(
     let status = cmd.status().context("Failed to execute command")?;
 
     if !status.success() {
-        return Err(RexerError::GitError(format!("Command failed: {command} {args:?}")));
+        return Err(RexerError::GitError(format!(
+            "Command failed: {command} {args:?}"
+        )));
     }
 
     Ok(())

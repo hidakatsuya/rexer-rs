@@ -87,7 +87,9 @@ impl GitManager {
             }
         }
 
-        Err(RexerError::GitError(format!("Reference '{reference}' not found")))
+        Err(RexerError::GitError(format!(
+            "Reference '{reference}' not found"
+        )))
     }
 
     fn checkout_default_branch(repo: &Repository) -> Result<()> {
