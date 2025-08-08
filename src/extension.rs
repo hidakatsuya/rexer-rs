@@ -1,0 +1,103 @@
+use serde::{Deserialize, Serialize};
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Extension {
+    pub name: String,
+    #[serde(flatten)]
+    pub source: Source,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub enum Source {
+    #[serde(rename = "git")]
+    Git {
+        url: String,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        branch: Option<String>,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        tag: Option<String>,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        commit: Option<String>,
+    },
+    #[serde(rename = "github")]
+    GitHub {
+        repo: String,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        branch: Option<String>,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        tag: Option<String>,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        commit: Option<String>,
+    },
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ExtensionsConfig {
+    #[serde(default)]
+    pub plugins: Vec<Extension>,
+    #[serde(default)]
+    pub themes: Vec<Extension>,
+}
+
+impl ExtensionsConfig {
+    pub fn all_extensions(&self) -> impl Iterator<Item = (&Extension, ExtensionType)> {
+        self.plugins
+            .iter()
+            .map(|e| (e, ExtensionType::Plugin))
+            .chain(self.themes.iter().map(|e| (e, ExtensionType::Theme)))
+    }
+}
+
+#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
+pub enum ExtensionType {
+    Plugin,
+    Theme,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct LockFile {
+    pub extensions: Vec<LockedExtension>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct LockedExtension {
+    pub name: String,
+    pub extension_type: ExtensionType,
+    pub source: Source,
+    pub commit_hash: Option<String>,
+    pub installed_at: String,
+}
+
+impl Source {
+    pub fn full_url(&self) -> String {
+        match self {
+            Source::Git { url, .. } => url.clone(),
+            Source::GitHub { repo, .. } => {
+                format!("https://github.com/{repo}.git")
+            }
+        }
+    }
+
+    pub fn reference(&self) -> Option<String> {
+        match self {
+            Source::Git {
+                branch,
+                tag,
+                commit,
+                ..
+            } => branch
+                .clone()
+                .or_else(|| tag.clone())
+                .or_else(|| commit.clone()),
+            Source::GitHub {
+                branch,
+                tag,
+                commit,
+                ..
+            } => branch
+                .clone()
+                .or_else(|| tag.clone())
+                .or_else(|| commit.clone()),
+        }
+    }
+}
