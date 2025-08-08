@@ -99,8 +99,6 @@ rex install
 
 MIT License - see [LICENSE](LICENSE) file for details.
 
-Inspired by [Rexer](https://github.com/hidakatsuya/rexer).
-
 ## Contributing
 
 Bug reports and pull requests are welcome on GitHub at https://github.com/hidakatsuya/rexer-rs.

@@ -2,7 +2,7 @@
 
 ## Project Overview
 
-This is a Rust rewrite of the original Ruby [rexer](https://github.com/hidakatsuya/rexer) gem, providing a fast, cross-platform CLI tool for managing Redmine extensions (plugins and themes).
+This is a Rust CLI tool for managing Redmine extensions (plugins and themes).
 
 ## Key Principles
 
@@ -12,6 +12,7 @@ This is a Rust rewrite of the original Ruby [rexer](https://github.com/hidakatsu
 - **Modular Design**: Maintain clean separation of concerns (CLI, commands, config, git, extensions)
 - **Error Handling**: Use `anyhow` and `thiserror` for robust error management
 - **Performance**: Focus on fast startup and execution times
+- **Rust Best Practices**: Follow Rust idioms, use `clippy` recommendations, prefer ownership over references where appropriate, use `Result` for error handling, and leverage the type system for correctness
 
 ### Configuration Format
 - **Config Files**: Use YAML format (`.extensions.yml`) for human readability and broad accessibility
@@ -76,37 +77,8 @@ Ensure all commands match Ruby rexer behavior:
 - Test non-existent extensions
 - Test command failures
 
-## File Organization
-
-### Source Structure
-- `src/main.rs` - Entry point
-- `src/cli.rs` - Command-line interface using `clap`
-- `src/commands.rs` - Command implementations
-- `src/config.rs` - Configuration and lock file handling
-- `src/extension.rs` - Extension types and structures
-- `src/git.rs` - Git operations
-- `src/error.rs` - Error types and handling
-
-### Test Structure
-- `tests/cli_tests.rs` - Integration tests for CLI commands
-- Focus on real command execution rather than unit tests
-
-## Dependencies
-
-### Core Dependencies
-- `clap` - Command-line argument parsing
-- `serde` and `serde_yaml` - Configuration serialization
-- `git2` - Git operations
-- `tokio` - Async runtime for future extensibility
-- `anyhow` and `thiserror` - Error handling
-
-### Development Dependencies
-- `assert_cmd` - Command testing
-- `tempfile` - Temporary directories for tests
-
 ## Future Considerations
 
-- Maintain compatibility with Ruby rexer's core functionality
 - Keep configuration format simple and accessible
 - Prioritize performance and ease of deployment
 - Consider adding features that benefit from Rust's strengths (parallelism, safety)
