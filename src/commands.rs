@@ -150,7 +150,6 @@ pub async fn reinstall(extension_name: String) -> Result<()> {
         &Extension {
             name: extension.name.clone(),
             source: extension.source.clone(),
-            hooks: None,
         },
         ext_type,
     )

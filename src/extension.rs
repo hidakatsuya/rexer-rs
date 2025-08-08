@@ -5,7 +5,6 @@ pub struct Extension {
     pub name: String,
     #[serde(flatten)]
     pub source: Source,
-    pub hooks: Option<Hooks>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -30,12 +29,6 @@ pub enum Source {
         #[serde(skip_serializing_if = "Option::is_none")]
         commit: Option<String>,
     },
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct Hooks {
-    pub installed: Option<String>,
-    pub uninstalled: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -80,11 +73,7 @@ impl Source {
         match self {
             Source::Git { url, .. } => url.clone(),
             Source::GitHub { repo, .. } => {
-                if repo.starts_with("http") {
-                    repo.clone()
-                } else {
-                    format!("https://github.com/{repo}.git")
-                }
+                format!("https://github.com/{repo}.git")
             }
         }
     }
