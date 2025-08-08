@@ -58,11 +58,6 @@ Ensure all commands match Ruby rexer behavior:
 - **reinstall**: Reinstalls specific extension (uninstall + install)
 - **edit**: Opens config file in $VISUAL or $EDITOR
 
-### Excluded Features
-- **Hooks**: Ruby-style hooks are not needed in the Rust version
-- **Environments**: Environment support is not implemented
-- **`rex envs` command**: Not needed in this implementation
-
 ## Testing Strategy
 
 ### Integration Tests
