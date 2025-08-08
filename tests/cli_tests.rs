@@ -168,11 +168,7 @@ themes:
         .stdout(predicate::str::contains("Installed 1 extensions"));
 
     // Check that theme directory was created
-    let theme_path = temp_dir
-        .path()
-        .join("public")
-        .join("themes")
-        .join("test_theme");
+    let theme_path = temp_dir.path().join("themes").join("test_theme");
     assert!(theme_path.exists());
 }
 

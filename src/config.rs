@@ -35,7 +35,7 @@ impl Config {
     }
 
     pub fn themes_dir(&self) -> PathBuf {
-        self.redmine_root.join("public").join("themes")
+        self.redmine_root.join("themes")
     }
 
     pub fn load_extensions_config(&self) -> Result<ExtensionsConfig> {
