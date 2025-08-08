@@ -82,7 +82,7 @@ fn test_state_command_no_lock() {
         .current_dir(&temp_dir)
         .assert()
         .success()
-        .stdout(predicate::str::contains("No extensions installed"));
+        .stdout(predicate::str::contains("No lock file found"));
 }
 
 /// Installation tests
@@ -229,8 +229,9 @@ themes: []
         .current_dir(&temp_dir)
         .assert()
         .success()
-        .stdout(predicate::str::contains("Installed extensions:"))
-        .stdout(predicate::str::contains("plugin test_plugin"));
+        .stdout(predicate::str::contains("Rexer: 0.1.0"))
+        .stdout(predicate::str::contains("Plugins:"))
+        .stdout(predicate::str::contains("test_plugin"));
 }
 
 /// Uninstall tests
