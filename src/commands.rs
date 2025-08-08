@@ -62,12 +62,16 @@ pub async fn state() -> Result<()> {
         Some(lock_file) => {
             // Show version similar to Ruby rexer
             println!("Rexer: {}", env!("CARGO_PKG_VERSION"));
-            
+
             // Group by type like Ruby rexer
-            let plugins: Vec<_> = lock_file.extensions.iter()
+            let plugins: Vec<_> = lock_file
+                .extensions
+                .iter()
                 .filter(|ext| matches!(ext.extension_type, ExtensionType::Plugin))
                 .collect();
-            let themes: Vec<_> = lock_file.extensions.iter()
+            let themes: Vec<_> = lock_file
+                .extensions
+                .iter()
                 .filter(|ext| matches!(ext.extension_type, ExtensionType::Theme))
                 .collect();
 
@@ -184,7 +188,12 @@ pub async fn edit() -> Result<()> {
 
 fn format_source_info(source: &Source, commit_hash: &Option<String>) -> String {
     let base_info = match source {
-        Source::Git { url, branch, tag, commit } => {
+        Source::Git {
+            url,
+            branch,
+            tag,
+            commit,
+        } => {
             if let Some(commit) = commit {
                 format!("git: {url} at {commit}")
             } else if let Some(tag) = tag {
@@ -195,7 +204,12 @@ fn format_source_info(source: &Source, commit_hash: &Option<String>) -> String {
                 format!("git: {url}")
             }
         }
-        Source::GitHub { repo, branch, tag, commit } => {
+        Source::GitHub {
+            repo,
+            branch,
+            tag,
+            commit,
+        } => {
             if let Some(commit) = commit {
                 format!("github: {repo} at {commit}")
             } else if let Some(tag) = tag {
