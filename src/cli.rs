@@ -74,7 +74,7 @@ impl Cli {
             Commands::State => state().await,
             Commands::Edit => edit().await,
             Commands::Version => {
-                println!("{}", env!("CARGO_PKG_VERSION"));
+                println!("rex {}", env!("CARGO_PKG_VERSION"));
                 Ok(())
             }
         }
