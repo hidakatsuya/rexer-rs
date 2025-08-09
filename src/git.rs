@@ -1,10 +1,8 @@
 use crate::error::{Result, RexerError};
 use crate::extension::Source;
-use anyhow::Context;
 use git2::{BranchType, Repository};
-use log::{debug, info, warn};
+use log::{debug, info};
 use std::path::Path;
-use std::process::Command;
 
 pub struct GitManager;
 
@@ -18,197 +16,27 @@ impl GitManager {
     }
 
     fn clone_repository(source: &Source, destination: &Path) -> Result<String> {
-        // In release builds, prefer CLI git for better stability
-        // In debug builds, try git2 first for better debugging
-        if cfg!(debug_assertions) {
-            // Debug build: try git2 first, fallback to CLI
-            match Self::clone_repository_with_git2(source, destination) {
-                Ok(hash) => Ok(hash),
-                Err(e) => {
-                    warn!("git2 clone failed, falling back to command-line git: {e}");
-                    Self::clone_repository_with_cli(source, destination)
-                }
-            }
-        } else {
-            // Release build: use CLI git by default
-            info!("Using command-line git for better stability in release build");
-            Self::clone_repository_with_cli(source, destination)
-        }
-    }
-
-    fn clone_repository_with_git2(source: &Source, destination: &Path) -> Result<String> {
         let url = source.full_url();
-        info!("Cloning {} to {} using git2", url, destination.display());
+        info!("Cloning {} to {}", url, destination.display());
 
-        // Ensure parent directory exists
-        if let Some(parent) = destination.parent() {
-            std::fs::create_dir_all(parent)?;
-        }
+        let repo = Repository::clone(&url, destination)?;
 
-        debug!("Starting git clone operation");
-
-        // Set up clone options for better stability
-        let mut clone_options = git2::build::RepoBuilder::new();
-        clone_options.fetch_options(Self::create_fetch_options());
-
-        let repo = clone_options
-            .clone(&url, destination)
-            .map_err(|e| RexerError::GitError(format!("Failed to clone repository {url}: {e}")))?;
-        debug!("Git clone completed successfully");
-
-        // Handle reference checkout if specified
-        let commit_hash = if let Some(reference) = source.reference() {
-            debug!("Checking out reference: {reference}");
-            Self::checkout_reference(&repo, &reference)?;
-            debug!("Reference checkout completed");
-            Self::get_current_commit_hash(&repo)?
-        } else {
-            Self::get_current_commit_hash(&repo)?
-        };
-
-        debug!("Commit hash retrieved: {commit_hash}");
-        Ok(commit_hash)
-    }
-
-    fn create_fetch_options<'a>() -> git2::FetchOptions<'a> {
-        let mut fetch_options = git2::FetchOptions::new();
-
-        // Set up safer callbacks
-        let mut callbacks = git2::RemoteCallbacks::new();
-        callbacks.credentials(|_url, username_from_url, _allowed_types| {
-            // Try to use git credential helper
-            if let Ok(config) = git2::Config::open_default() {
-                git2::Cred::credential_helper(&config, _url, username_from_url)
-            } else {
-                // Fallback to default credential
-                git2::Cred::default()
-            }
-        });
-
-        // Add certificate validation callback
-        callbacks.certificate_check(|_cert, _valid| {
-            // For HTTPS connections, allow the connection
-            Ok(git2::CertificateCheckStatus::CertificateOk)
-        });
-
-        fetch_options.remote_callbacks(callbacks);
-        fetch_options
-    }
-
-    fn clone_repository_with_cli(source: &Source, destination: &Path) -> Result<String> {
-        let url = source.full_url();
-        info!(
-            "Cloning {} to {} using command-line git",
-            url,
-            destination.display()
-        );
-
-        // Ensure parent directory exists
-        if let Some(parent) = destination.parent() {
-            std::fs::create_dir_all(parent)?;
-        }
-
-        // Clone the repository
-        let mut cmd = Command::new("git");
-        cmd.arg("clone").arg(&url).arg(destination);
-
-        let output = cmd
-            .output()
-            .with_context(|| "Failed to execute git clone command")?;
-
-        if !output.status.success() {
-            return Err(RexerError::GitError(format!(
-                "git clone failed: {}",
-                String::from_utf8_lossy(&output.stderr)
-            )));
-        }
-
-        // Checkout specific reference if needed
         if let Some(reference) = source.reference() {
-            debug!("Checking out reference: {reference}");
-            Self::checkout_reference_with_cli(destination, &reference)?;
+            Self::checkout_reference(&repo, &reference)?;
         }
 
-        // Get current commit hash
-        Self::get_current_commit_hash_with_cli(destination)
-    }
-
-    fn checkout_reference_with_cli(repo_dir: &Path, reference: &str) -> Result<()> {
-        let mut cmd = Command::new("git");
-        cmd.arg("-C").arg(repo_dir).arg("checkout").arg(reference);
-
-        let output = cmd
-            .output()
-            .with_context(|| format!("Failed to checkout reference {reference}"))?;
-
-        if !output.status.success() {
-            return Err(RexerError::GitError(format!(
-                "git checkout failed: {}",
-                String::from_utf8_lossy(&output.stderr)
-            )));
-        }
-
-        Ok(())
-    }
-
-    fn get_current_commit_hash_with_cli(repo_dir: &Path) -> Result<String> {
-        let mut cmd = Command::new("git");
-        cmd.arg("-C").arg(repo_dir).arg("rev-parse").arg("HEAD");
-
-        let output = cmd
-            .output()
-            .with_context(|| "Failed to get current commit hash")?;
-
-        if !output.status.success() {
-            return Err(RexerError::GitError(format!(
-                "git rev-parse failed: {}",
-                String::from_utf8_lossy(&output.stderr)
-            )));
-        }
-
-        let hash = String::from_utf8_lossy(&output.stdout).trim().to_string();
-        Ok(hash)
+        Self::get_current_commit_hash(&repo)
     }
 
     fn update_repository(source: &Source, destination: &Path) -> Result<String> {
-        // In release builds, prefer CLI git for better stability
-        // In debug builds, try git2 first for better debugging
-        if cfg!(debug_assertions) {
-            // Debug build: try git2 first, fallback to CLI
-            match Self::update_repository_with_git2(source, destination) {
-                Ok(hash) => Ok(hash),
-                Err(e) => {
-                    warn!("git2 update failed, falling back to command-line git: {e}");
-                    Self::update_repository_with_cli(source, destination)
-                }
-            }
-        } else {
-            // Release build: use CLI git by default
-            info!("Using command-line git for better stability in release build");
-            Self::update_repository_with_cli(source, destination)
-        }
-    }
-
-    fn update_repository_with_git2(source: &Source, destination: &Path) -> Result<String> {
         let url = source.full_url();
-        info!("Updating {} at {} using git2", url, destination.display());
+        info!("Updating {} at {}", url, destination.display());
 
-        let repo = Repository::open(destination).map_err(|e| {
-            RexerError::GitError(format!(
-                "Failed to open repository at {}: {e}",
-                destination.display()
-            ))
-        })?;
+        let repo = Repository::open(destination)?;
 
-        // Fetch latest changes with improved error handling
-        let mut remote = repo
-            .find_remote("origin")
-            .map_err(|e| RexerError::GitError(format!("Failed to find origin remote: {e}")))?;
-
-        let mut fetch_options = Self::create_fetch_options();
-        remote
-            .fetch(&[] as &[&str], Some(&mut fetch_options), None)
-            .map_err(|e| RexerError::GitError(format!("Failed to fetch from origin: {e}")))?;
+        // Fetch latest changes
+        let mut remote = repo.find_remote("origin")?;
+        remote.fetch(&[] as &[&str], None, None)?;
 
         if let Some(reference) = source.reference() {
             Self::checkout_reference(&repo, &reference)?;
@@ -220,150 +48,41 @@ impl GitManager {
         Self::get_current_commit_hash(&repo)
     }
 
-    fn update_repository_with_cli(source: &Source, destination: &Path) -> Result<String> {
-        let url = source.full_url();
-        info!(
-            "Updating {} at {} using command-line git",
-            url,
-            destination.display()
-        );
-
-        // Fetch latest changes
-        let mut cmd = Command::new("git");
-        cmd.arg("-C").arg(destination).arg("fetch").arg("origin");
-
-        let output = cmd
-            .output()
-            .with_context(|| "Failed to fetch from origin")?;
-
-        if !output.status.success() {
-            return Err(RexerError::GitError(format!(
-                "git fetch failed: {}",
-                String::from_utf8_lossy(&output.stderr)
-            )));
-        }
-
-        // Checkout specific reference if needed
-        if let Some(reference) = source.reference() {
-            Self::checkout_reference_with_cli(destination, &reference)?;
-        } else {
-            // Reset to origin/main or origin/master
-            Self::reset_to_default_branch_with_cli(destination)?;
-        }
-
-        Self::get_current_commit_hash_with_cli(destination)
-    }
-
-    fn reset_to_default_branch_with_cli(repo_dir: &Path) -> Result<()> {
-        // Try origin/main first, then origin/master
-        for branch in &["origin/main", "origin/master"] {
-            let mut cmd = Command::new("git");
-            cmd.arg("-C")
-                .arg(repo_dir)
-                .arg("reset")
-                .arg("--hard")
-                .arg(branch);
-
-            let output = cmd.output().ok();
-            if let Some(output) = output {
-                if output.status.success() {
-                    return Ok(());
-                }
-            }
-        }
-
-        Err(RexerError::GitError(
-            "Failed to reset to default branch".to_string(),
-        ))
-    }
-
     fn checkout_reference(repo: &Repository, reference: &str) -> Result<()> {
         debug!("Checking out reference: {reference}");
 
         // Try to find the reference as a branch first
         if let Ok(branch) = repo.find_branch(reference, BranchType::Local) {
-            debug!("Found local branch: {reference}");
-            let commit = branch.get().peel_to_commit().map_err(|e| {
-                RexerError::GitError(format!(
-                    "Failed to get commit for local branch {reference}: {e}"
-                ))
-            })?;
-            repo.checkout_tree(commit.as_object(), None).map_err(|e| {
-                RexerError::GitError(format!(
-                    "Failed to checkout tree for local branch {reference}: {e}"
-                ))
-            })?;
-            repo.set_head(&format!("refs/heads/{reference}"))
-                .map_err(|e| {
-                    RexerError::GitError(format!(
-                        "Failed to set head for local branch {reference}: {e}"
-                    ))
-                })?;
-            debug!("Successfully checked out local branch: {reference}");
+            let commit = branch.get().peel_to_commit()?;
+            repo.checkout_tree(commit.as_object(), None)?;
+            repo.set_head(&format!("refs/heads/{reference}"))?;
             return Ok(());
         }
 
         // Try remote branch
         if let Ok(branch) = repo.find_branch(&format!("origin/{reference}"), BranchType::Remote) {
-            debug!("Found remote branch: origin/{reference}");
-            let commit = branch.get().peel_to_commit().map_err(|e| {
-                RexerError::GitError(format!(
-                    "Failed to get commit for remote branch {reference}: {e}"
-                ))
-            })?;
-            repo.checkout_tree(commit.as_object(), None).map_err(|e| {
-                RexerError::GitError(format!(
-                    "Failed to checkout tree for remote branch {reference}: {e}"
-                ))
-            })?;
+            let commit = branch.get().peel_to_commit()?;
+            repo.checkout_tree(commit.as_object(), None)?;
 
             // Create local branch tracking remote
-            repo.branch(reference, &commit, false).map_err(|e| {
-                RexerError::GitError(format!("Failed to create local branch {reference}: {e}"))
-            })?;
-            repo.set_head(&format!("refs/heads/{reference}"))
-                .map_err(|e| {
-                    RexerError::GitError(format!(
-                        "Failed to set head for remote branch {reference}: {e}"
-                    ))
-                })?;
-            debug!("Successfully checked out remote branch: {reference}");
+            repo.branch(reference, &commit, false)?;
+            repo.set_head(&format!("refs/heads/{reference}"))?;
             return Ok(());
         }
 
         // Try as a tag
         if let Ok(tag_ref) = repo.find_reference(&format!("refs/tags/{reference}")) {
-            debug!("Found tag: {reference}");
-            let commit = tag_ref.peel_to_commit().map_err(|e| {
-                RexerError::GitError(format!("Failed to get commit for tag {reference}: {e}"))
-            })?;
-            repo.checkout_tree(commit.as_object(), None).map_err(|e| {
-                RexerError::GitError(format!("Failed to checkout tree for tag {reference}: {e}"))
-            })?;
-            repo.set_head_detached(commit.id()).map_err(|e| {
-                RexerError::GitError(format!(
-                    "Failed to set detached head for tag {reference}: {e}"
-                ))
-            })?;
-            debug!("Successfully checked out tag: {reference}");
+            let commit = tag_ref.peel_to_commit()?;
+            repo.checkout_tree(commit.as_object(), None)?;
+            repo.set_head_detached(commit.id())?;
             return Ok(());
         }
 
         // Try as a commit hash
         if let Ok(oid) = git2::Oid::from_str(reference) {
             if let Ok(commit) = repo.find_commit(oid) {
-                debug!("Found commit: {reference}");
-                repo.checkout_tree(commit.as_object(), None).map_err(|e| {
-                    RexerError::GitError(format!(
-                        "Failed to checkout tree for commit {reference}: {e}"
-                    ))
-                })?;
-                repo.set_head_detached(commit.id()).map_err(|e| {
-                    RexerError::GitError(format!(
-                        "Failed to set detached head for commit {reference}: {e}"
-                    ))
-                })?;
-                debug!("Successfully checked out commit: {reference}");
+                repo.checkout_tree(commit.as_object(), None)?;
+                repo.set_head_detached(commit.id())?;
                 return Ok(());
             }
         }
@@ -381,16 +100,9 @@ impl GitManager {
     }
 
     fn get_current_commit_hash(repo: &Repository) -> Result<String> {
-        debug!("Getting current commit hash");
-        let head = repo
-            .head()
-            .map_err(|e| RexerError::GitError(format!("Failed to get repository head: {e}")))?;
-        let commit = head
-            .peel_to_commit()
-            .map_err(|e| RexerError::GitError(format!("Failed to get commit from head: {e}")))?;
-        let hash = commit.id().to_string();
-        debug!("Current commit hash: {hash}");
-        Ok(hash)
+        let head = repo.head()?;
+        let commit = head.peel_to_commit()?;
+        Ok(commit.id().to_string())
     }
 
     #[allow(dead_code)]

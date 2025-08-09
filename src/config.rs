@@ -70,29 +70,34 @@ impl Config {
 
     pub fn save_lock_file(&self, lock_file: &LockFile) -> Result<()> {
         let path = self.lock_file_path();
-        
-        // Use defensive serialization approach for release builds
+
+        // Validate lock file data before serialization
+        crate::commands::validate_lock_file(lock_file)?;
+
+        // Defensive approach for lock file generation
+        // Use compact JSON in release builds to minimize memory allocation issues
         let content = if cfg!(debug_assertions) {
             // Debug build: use pretty printing for better debugging
             serde_json::to_string_pretty(lock_file)
                 .map_err(|e| RexerError::LockFileError(format!("JSON serialization failed: {e}")))?
         } else {
-            // Release build: use compact serialization to minimize memory issues
+            // Release build: use compact serialization to avoid potential memory issues
             serde_json::to_string(lock_file)
                 .map_err(|e| RexerError::LockFileError(format!("JSON serialization failed: {e}")))?
         };
-        
-        // Defensive file writing with atomic operation
+
+        // Atomic file operations to prevent corruption
         let temp_path = path.with_extension("lock.tmp");
-        
+
         // Write to temporary file first
-        fs::write(&temp_path, &content)
-            .map_err(|e| RexerError::LockFileError(format!("Failed to write temporary lock file: {e}")))?;
-        
+        fs::write(&temp_path, &content).map_err(|e| {
+            RexerError::LockFileError(format!("Failed to write temporary lock file: {e}"))
+        })?;
+
         // Atomically move to final location
         fs::rename(&temp_path, &path)
             .map_err(|e| RexerError::LockFileError(format!("Failed to finalize lock file: {e}")))?;
-        
+
         Ok(())
     }
 
