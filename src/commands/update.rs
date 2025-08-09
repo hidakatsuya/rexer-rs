@@ -39,7 +39,10 @@ async fn update_extension(config: &Config, extension: &LockedExtension) -> Resul
     if dest_dir.exists() {
         GitManager::clone_or_update(&extension.source, &dest_dir)?;
 
-        if matches!(extension.extension_type, crate::extension::ExtensionType::Plugin) {
+        if matches!(
+            extension.extension_type,
+            crate::extension::ExtensionType::Plugin
+        ) {
             crate::commands::utils::run_plugin_setup(&dest_dir, config).await?;
         }
     }
