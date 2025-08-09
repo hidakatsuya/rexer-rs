@@ -13,6 +13,11 @@ use error::Result;
 async fn main() -> Result<()> {
     env_logger::init();
 
+    // Initialize git2 with safer defaults to prevent memory issues
+    unsafe {
+        git2::opts::set_verify_owner_validation(false).ok();
+    }
+
     let cli = Cli::parse();
     cli.execute().await
 }
