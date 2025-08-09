@@ -13,6 +13,11 @@ use error::Result;
 async fn main() -> Result<()> {
     env_logger::init();
 
+    // Initialize git2 library with safer defaults
+    unsafe {
+        git2::opts::set_verify_owner_validation(false).ok();
+    }
+
     let cli = Cli::parse();
     cli.execute().await
 }

@@ -468,18 +468,57 @@ async fn install_extension(
         ExtensionType::Theme => config.themes_dir().join(&extension.name),
     };
 
+    info!(
+        "Installing extension {} to {}",
+        extension.name,
+        dest_dir.display()
+    );
+
     // Create parent directories if they don't exist
     if let Some(parent) = dest_dir.parent() {
-        fs::create_dir_all(parent)?;
+        fs::create_dir_all(parent)
+            .with_context(|| format!("Failed to create parent directory: {}", parent.display()))?;
     }
 
-    let commit_hash = GitManager::clone_or_update(&extension.source, &dest_dir)?;
+    // Ensure destination doesn't exist or is empty to avoid conflicts
+    if dest_dir.exists() {
+        if dest_dir.is_dir() {
+            let entries = fs::read_dir(&dest_dir)
+                .with_context(|| format!("Failed to read directory: {}", dest_dir.display()))?;
+            if entries.count() > 0 {
+                info!(
+                    "Directory {} exists and is not empty, removing it first",
+                    dest_dir.display()
+                );
+                fs::remove_dir_all(&dest_dir).with_context(|| {
+                    format!(
+                        "Failed to remove existing directory: {}",
+                        dest_dir.display()
+                    )
+                })?;
+            }
+        } else {
+            return Err(RexerError::GitError(format!(
+                "Destination path exists but is not a directory: {}",
+                dest_dir.display()
+            )));
+        }
+    }
+
+    let commit_hash = GitManager::clone_or_update(&extension.source, &dest_dir)
+        .with_context(|| format!("Failed to clone/update extension {}", extension.name))?;
 
     // For plugins, run bundle install and migrations if applicable
     if matches!(ext_type, ExtensionType::Plugin) {
-        run_plugin_setup(&dest_dir, config).await?;
+        run_plugin_setup(&dest_dir, config)
+            .await
+            .with_context(|| format!("Failed to setup plugin {}", extension.name))?;
     }
 
+    info!(
+        "Successfully installed extension {} with commit {}",
+        extension.name, commit_hash
+    );
     Ok(commit_hash)
 }
 
