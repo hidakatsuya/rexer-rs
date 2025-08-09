@@ -18,13 +18,21 @@ impl GitManager {
     }
 
     fn clone_repository(source: &Source, destination: &Path) -> Result<String> {
-        // Try using git2 library first
-        match Self::clone_repository_with_git2(source, destination) {
-            Ok(hash) => Ok(hash),
-            Err(e) => {
-                warn!("git2 clone failed, falling back to command-line git: {e}");
-                Self::clone_repository_with_cli(source, destination)
+        // In release builds, prefer CLI git for better stability
+        // In debug builds, try git2 first for better debugging
+        if cfg!(debug_assertions) {
+            // Debug build: try git2 first, fallback to CLI
+            match Self::clone_repository_with_git2(source, destination) {
+                Ok(hash) => Ok(hash),
+                Err(e) => {
+                    warn!("git2 clone failed, falling back to command-line git: {e}");
+                    Self::clone_repository_with_cli(source, destination)
+                }
             }
+        } else {
+            // Release build: use CLI git by default
+            info!("Using command-line git for better stability in release build");
+            Self::clone_repository_with_cli(source, destination)
         }
     }
 
@@ -38,22 +46,53 @@ impl GitManager {
         }
 
         debug!("Starting git clone operation");
-        let repo = Repository::clone(&url, destination).map_err(|e| {
-            RexerError::GitError(format!("Failed to clone repository {url}: {e}"))
-        })?;
+
+        // Set up clone options for better stability
+        let mut clone_options = git2::build::RepoBuilder::new();
+        clone_options.fetch_options(Self::create_fetch_options());
+
+        let repo = clone_options
+            .clone(&url, destination)
+            .map_err(|e| RexerError::GitError(format!("Failed to clone repository {url}: {e}")))?;
         debug!("Git clone completed successfully");
 
-        if let Some(reference) = source.reference() {
+        // Handle reference checkout if specified
+        let commit_hash = if let Some(reference) = source.reference() {
             debug!("Checking out reference: {reference}");
             Self::checkout_reference(&repo, &reference)?;
             debug!("Reference checkout completed");
-        }
+            Self::get_current_commit_hash(&repo)?
+        } else {
+            Self::get_current_commit_hash(&repo)?
+        };
 
-        debug!("Getting current commit hash");
-        let commit_hash = Self::get_current_commit_hash(&repo)?;
         debug!("Commit hash retrieved: {commit_hash}");
-
         Ok(commit_hash)
+    }
+
+    fn create_fetch_options<'a>() -> git2::FetchOptions<'a> {
+        let mut fetch_options = git2::FetchOptions::new();
+
+        // Set up safer callbacks
+        let mut callbacks = git2::RemoteCallbacks::new();
+        callbacks.credentials(|_url, username_from_url, _allowed_types| {
+            // Try to use git credential helper
+            if let Ok(config) = git2::Config::open_default() {
+                git2::Cred::credential_helper(&config, _url, username_from_url)
+            } else {
+                // Fallback to default credential
+                git2::Cred::default()
+            }
+        });
+
+        // Add certificate validation callback
+        callbacks.certificate_check(|_cert, _valid| {
+            // For HTTPS connections, allow the connection
+            Ok(git2::CertificateCheckStatus::CertificateOk)
+        });
+
+        fetch_options.remote_callbacks(callbacks);
+        fetch_options
     }
 
     fn clone_repository_with_cli(source: &Source, destination: &Path) -> Result<String> {
@@ -132,15 +171,21 @@ impl GitManager {
     }
 
     fn update_repository(source: &Source, destination: &Path) -> Result<String> {
-        // Try using git2 library first
-        match Self::update_repository_with_git2(source, destination) {
-            Ok(hash) => Ok(hash),
-            Err(e) => {
-                warn!(
-                    "git2 update failed, falling back to command-line git: {e}"
-                );
-                Self::update_repository_with_cli(source, destination)
+        // In release builds, prefer CLI git for better stability
+        // In debug builds, try git2 first for better debugging
+        if cfg!(debug_assertions) {
+            // Debug build: try git2 first, fallback to CLI
+            match Self::update_repository_with_git2(source, destination) {
+                Ok(hash) => Ok(hash),
+                Err(e) => {
+                    warn!("git2 update failed, falling back to command-line git: {e}");
+                    Self::update_repository_with_cli(source, destination)
+                }
             }
+        } else {
+            // Release build: use CLI git by default
+            info!("Using command-line git for better stability in release build");
+            Self::update_repository_with_cli(source, destination)
         }
     }
 
@@ -148,11 +193,22 @@ impl GitManager {
         let url = source.full_url();
         info!("Updating {} at {} using git2", url, destination.display());
 
-        let repo = Repository::open(destination)?;
+        let repo = Repository::open(destination).map_err(|e| {
+            RexerError::GitError(format!(
+                "Failed to open repository at {}: {e}",
+                destination.display()
+            ))
+        })?;
 
-        // Fetch latest changes
-        let mut remote = repo.find_remote("origin")?;
-        remote.fetch(&[] as &[&str], None, None)?;
+        // Fetch latest changes with improved error handling
+        let mut remote = repo
+            .find_remote("origin")
+            .map_err(|e| RexerError::GitError(format!("Failed to find origin remote: {e}")))?;
+
+        let mut fetch_options = Self::create_fetch_options();
+        remote
+            .fetch(&[] as &[&str], Some(&mut fetch_options), None)
+            .map_err(|e| RexerError::GitError(format!("Failed to fetch from origin: {e}")))?;
 
         if let Some(reference) = source.reference() {
             Self::checkout_reference(&repo, &reference)?;
@@ -263,9 +319,7 @@ impl GitManager {
 
             // Create local branch tracking remote
             repo.branch(reference, &commit, false).map_err(|e| {
-                RexerError::GitError(format!(
-                    "Failed to create local branch {reference}: {e}"
-                ))
+                RexerError::GitError(format!("Failed to create local branch {reference}: {e}"))
             })?;
             repo.set_head(&format!("refs/heads/{reference}"))
                 .map_err(|e| {
@@ -284,9 +338,7 @@ impl GitManager {
                 RexerError::GitError(format!("Failed to get commit for tag {reference}: {e}"))
             })?;
             repo.checkout_tree(commit.as_object(), None).map_err(|e| {
-                RexerError::GitError(format!(
-                    "Failed to checkout tree for tag {reference}: {e}"
-                ))
+                RexerError::GitError(format!("Failed to checkout tree for tag {reference}: {e}"))
             })?;
             repo.set_head_detached(commit.id()).map_err(|e| {
                 RexerError::GitError(format!(

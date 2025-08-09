@@ -30,6 +30,7 @@ env_logger = "0.10"
 colored = "2.0"
 tempfile = "3.8"
 chrono = { version = "0.4", features = ["serde"] }
+openssl-probe = "0.1"
 
 [dev-dependencies]
 tempfile = "3.8"
