@@ -36,7 +36,7 @@ pub enum Commands {
         extension: String,
     },
 
-    /// Update extensions to latest versions
+    /// Update extensions to latest versions from lock file sources
     Update {
         /// Specific extensions to update (default: all)
         extensions: Vec<String>,

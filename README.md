@@ -64,10 +64,10 @@ rex install
 ## Commands
 
 - `rex init` - Create a new .extensions.yml file
-- `rex install` - Install extensions 
+- `rex install` - Install extensions defined in .extensions.yml (compares config with lock file)
 - `rex uninstall` - Uninstall all extensions
 - `rex state` - Show current state of installed extensions
-- `rex update [extensions...]` - Update extensions to latest versions
+- `rex update [extensions...]` - Update extensions to latest versions based on sources in lock file
 - `rex reinstall [extension]` - Reinstall a specific extension
 - `rex edit` - Edit the configuration file
 - `rex version` - Show version information
@@ -76,6 +76,11 @@ rex install
 
 - `-v, --verbose` - Detailed output
 - `-q, --quiet` - Minimal output
+
+### Install vs Update
+
+- **`rex install`** - Compares your `.extensions.yml` configuration with the current `.extensions.lock` file and installs, updates, or removes extensions as needed to match the configuration.
+- **`rex update`** - Updates specific extensions (or all if none specified) to their latest versions based on the source configuration stored in the `.extensions.lock` file. This only looks at the lock file and does not compare with `.extensions.yml`.
 
 ## Configuration
 
