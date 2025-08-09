@@ -133,7 +133,7 @@ pub async fn update(extension_names: Vec<String>) -> Result<()> {
     for ext in &extensions_to_update {
         println!("Updating {}...", ext.name.blue());
         let new_commit_hash = update_extension_and_get_hash(&config, ext).await?;
-        
+
         // Update the lock file entry if commit hash changed
         if let Some(locked_ext) = updated_lock
             .extensions
@@ -496,7 +496,10 @@ async fn uninstall_extension(config: &Config, extension: &LockedExtension) -> Re
     Ok(())
 }
 
-async fn update_extension_and_get_hash(config: &Config, extension: &LockedExtension) -> Result<String> {
+async fn update_extension_and_get_hash(
+    config: &Config,
+    extension: &LockedExtension,
+) -> Result<String> {
     let dest_dir = match extension.extension_type {
         ExtensionType::Plugin => config.plugins_dir().join(&extension.name),
         ExtensionType::Theme => config.themes_dir().join(&extension.name),

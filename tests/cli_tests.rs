@@ -390,7 +390,7 @@ themes: []
     // Verify lock file still exists and was potentially updated
     assert!(lock_path.exists());
     let lock_content_after = fs::read_to_string(&lock_path).unwrap();
-    
+
     // The content should be valid JSON
     let _lock_data: serde_json::Value = serde_json::from_str(&lock_content_after).unwrap();
 }
