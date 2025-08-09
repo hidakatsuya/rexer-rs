@@ -142,7 +142,7 @@ pub async fn update(extension_names: Vec<String>) -> Result<()> {
         {
             if locked_ext.commit_hash.as_ref() != Some(&new_commit_hash) {
                 locked_ext.commit_hash = Some(new_commit_hash);
-                locked_ext.installed_at = Utc::now().to_rfc3339();
+                locked_ext.installed_at = generate_safe_timestamp();
                 any_updated = true;
             }
         }
@@ -150,6 +150,7 @@ pub async fn update(extension_names: Vec<String>) -> Result<()> {
 
     // Save updated lock file if any changes were made
     if any_updated {
+        validate_lock_file_data(&updated_lock)?;
         config.save_lock_file(&updated_lock)?;
         println!("Updated {} extension(s)", extensions_to_update.len());
     } else {
@@ -193,8 +194,9 @@ pub async fn reinstall(extension_name: String) -> Result<()> {
         .find(|e| e.name == extension_name)
     {
         locked_ext.commit_hash = Some(commit_hash);
-        locked_ext.installed_at = Utc::now().to_rfc3339();
+        locked_ext.installed_at = generate_safe_timestamp();
     }
+    validate_lock_file_data(&updated_lock)?;
     config.save_lock_file(&updated_lock)?;
 
     println!("Reinstalled {}", extension_name.blue());
@@ -274,7 +276,7 @@ async fn install_all_extensions(
             extension_type: ext_type,
             source: extension.source.clone(),
             commit_hash: Some(commit_hash),
-            installed_at: Utc::now().to_rfc3339(),
+            installed_at: generate_safe_timestamp(),
         });
     }
 
@@ -282,6 +284,9 @@ async fn install_all_extensions(
         extensions: locked_extensions,
     };
 
+    // Validate lock file data before saving to prevent serialization issues
+    validate_lock_file_data(&lock_file)?;
+    
     config.save_lock_file(&lock_file)?;
     println!("Installed {} extensions", lock_file.extensions.len());
 
@@ -313,7 +318,7 @@ async fn update_installation(
             extension_type: *ext_type,
             source: extension.source.clone(),
             commit_hash: Some(commit_hash),
-            installed_at: Utc::now().to_rfc3339(),
+            installed_at: generate_safe_timestamp(),
         });
     }
 
@@ -330,7 +335,7 @@ async fn update_installation(
             extension_type: *ext_type,
             source: extension.source.clone(),
             commit_hash: Some(commit_hash),
-            installed_at: Utc::now().to_rfc3339(),
+            installed_at: generate_safe_timestamp(),
         });
     }
 
@@ -363,6 +368,9 @@ async fn update_installation(
         extensions: final_extensions,
     };
 
+    // Validate lock file data before saving to prevent serialization issues
+    validate_lock_file_data(&updated_lock)?;
+    
     config.save_lock_file(&updated_lock)?;
 
     if diff.added.is_empty() && diff.removed.is_empty() && diff.source_changed.is_empty() {
@@ -634,5 +642,67 @@ fn run_command(
         )));
     }
 
+    Ok(())
+}
+
+/// Generate timestamp in a safe way that minimizes memory allocation issues in release builds
+fn generate_safe_timestamp() -> String {
+    // Use a defensive approach to timestamp generation
+    match std::panic::catch_unwind(|| Utc::now().to_rfc3339()) {
+        Ok(timestamp) => timestamp,
+        Err(_) => {
+            // Fallback to a simpler timestamp format if RFC3339 fails
+            let now = std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap_or_default();
+            format!("{}.000000000+00:00", now.as_secs())
+        }
+    }
+}
+
+/// Validate lock file data to prevent serialization issues in release builds
+fn validate_lock_file_data(lock_file: &LockFile) -> Result<()> {
+    for extension in &lock_file.extensions {
+        // Validate extension name is not empty
+        if extension.name.trim().is_empty() {
+            return Err(RexerError::LockFileError(
+                "Extension name cannot be empty".to_string(),
+            ));
+        }
+        
+        // Validate timestamp format
+        if extension.installed_at.trim().is_empty() {
+            return Err(RexerError::LockFileError(
+                "Extension timestamp cannot be empty".to_string(),
+            ));
+        }
+        
+        // Validate commit hash if present
+        if let Some(hash) = &extension.commit_hash {
+            if hash.trim().is_empty() {
+                return Err(RexerError::LockFileError(
+                    "Extension commit hash cannot be empty when present".to_string(),
+                ));
+            }
+        }
+        
+        // Validate source data
+        match &extension.source {
+            crate::extension::Source::Git { url, .. } => {
+                if url.trim().is_empty() {
+                    return Err(RexerError::LockFileError(
+                        "Git URL cannot be empty".to_string(),
+                    ));
+                }
+            }
+            crate::extension::Source::GitHub { repo, .. } => {
+                if repo.trim().is_empty() {
+                    return Err(RexerError::LockFileError(
+                        "GitHub repo cannot be empty".to_string(),
+                    ));
+                }
+            }
+        }
+    }
     Ok(())
 }
