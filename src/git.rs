@@ -16,7 +16,7 @@ impl GitManager {
                 Ok(hash)
             }
             Err(e) => {
-                warn!("git2 operation failed, falling back to CLI: {}", e);
+                warn!("git2 operation failed, falling back to CLI: {e}");
                 Self::clone_or_update_with_cli(source, destination)
             }
         }
@@ -57,23 +57,23 @@ impl GitManager {
                     repo
                 }
                 Err(e) => {
-                    return Err(RexerError::GitError(format!("Failed to clone {}: {}", url, e)));
+                    return Err(RexerError::GitError(format!("Failed to clone {url}: {e}")));
                 }
             }
         };
 
         // Handle reference checkout
         if let Some(reference) = source.reference() {
-            debug!("Checking out reference: {}", reference);
+            debug!("Checking out reference: {reference}");
             Self::checkout_reference(&repo, &reference)?;
         }
 
         // Get commit hash and ensure repo is properly finalized
         let commit_hash = Self::get_current_commit_hash(&repo)?;
-        
+
         // Explicitly drop the repository to ensure cleanup
         drop(repo);
-        
+
         debug!("Clone operation completed successfully");
         Ok(commit_hash)
     }
@@ -89,10 +89,10 @@ impl GitManager {
 
         // Clone repository using git command
         let output = Command::new("git")
-            .args(&["clone", &url])
+            .args(["clone", &url])
             .arg(destination)
             .output()
-            .map_err(|e| RexerError::GitError(format!("Failed to execute git clone: {}", e)))?;
+            .map_err(|e| RexerError::GitError(format!("Failed to execute git clone: {e}")))?;
 
         if !output.status.success() {
             return Err(RexerError::GitError(format!(
@@ -111,11 +111,11 @@ impl GitManager {
 
     fn checkout_reference_with_cli(repo_path: &Path, reference: &str) -> Result<()> {
         let output = Command::new("git")
-            .args(&["-C"])
+            .args(["-C"])
             .arg(repo_path)
-            .args(&["checkout", reference])
+            .args(["checkout", reference])
             .output()
-            .map_err(|e| RexerError::GitError(format!("Failed to execute git checkout: {}", e)))?;
+            .map_err(|e| RexerError::GitError(format!("Failed to execute git checkout: {e}")))?;
 
         if !output.status.success() {
             return Err(RexerError::GitError(format!(
@@ -129,11 +129,11 @@ impl GitManager {
 
     fn get_current_commit_hash_with_cli(repo_path: &Path) -> Result<String> {
         let output = Command::new("git")
-            .args(&["-C"])
+            .args(["-C"])
             .arg(repo_path)
-            .args(&["rev-parse", "HEAD"])
+            .args(["rev-parse", "HEAD"])
             .output()
-            .map_err(|e| RexerError::GitError(format!("Failed to execute git rev-parse: {}", e)))?;
+            .map_err(|e| RexerError::GitError(format!("Failed to execute git rev-parse: {e}")))?;
 
         if !output.status.success() {
             return Err(RexerError::GitError(format!(
@@ -142,9 +142,7 @@ impl GitManager {
             )));
         }
 
-        let hash = String::from_utf8_lossy(&output.stdout)
-            .trim()
-            .to_string();
+        let hash = String::from_utf8_lossy(&output.stdout).trim().to_string();
         Ok(hash)
     }
 
@@ -153,14 +151,16 @@ impl GitManager {
         info!("Updating {} at {} using git2", url, destination.display());
 
         let repo = Repository::open(destination)
-            .map_err(|e| RexerError::GitError(format!("Failed to open repository: {}", e)))?;
+            .map_err(|e| RexerError::GitError(format!("Failed to open repository: {e}")))?;
 
         // Fetch latest changes
         {
-            let mut remote = repo.find_remote("origin")
-                .map_err(|e| RexerError::GitError(format!("Failed to find origin remote: {}", e)))?;
-            remote.fetch(&[] as &[&str], None, None)
-                .map_err(|e| RexerError::GitError(format!("Failed to fetch: {}", e)))?;
+            let mut remote = repo
+                .find_remote("origin")
+                .map_err(|e| RexerError::GitError(format!("Failed to find origin remote: {e}")))?;
+            remote
+                .fetch(&[] as &[&str], None, None)
+                .map_err(|e| RexerError::GitError(format!("Failed to fetch: {e}")))?;
         }
 
         if let Some(reference) = source.reference() {
@@ -171,24 +171,28 @@ impl GitManager {
         }
 
         let commit_hash = Self::get_current_commit_hash(&repo)?;
-        
+
         // Explicitly drop repository
         drop(repo);
-        
+
         Ok(commit_hash)
     }
 
     fn update_repository_with_cli(source: &Source, destination: &Path) -> Result<String> {
         let url = source.full_url();
-        info!("Updating {} at {} using CLI git", url, destination.display());
+        info!(
+            "Updating {} at {} using CLI git",
+            url,
+            destination.display()
+        );
 
         // Fetch latest changes
         let output = Command::new("git")
-            .args(&["-C"])
+            .args(["-C"])
             .arg(destination)
-            .args(&["fetch", "origin"])
+            .args(["fetch", "origin"])
             .output()
-            .map_err(|e| RexerError::GitError(format!("Failed to execute git fetch: {}", e)))?;
+            .map_err(|e| RexerError::GitError(format!("Failed to execute git fetch: {e}")))?;
 
         if !output.status.success() {
             return Err(RexerError::GitError(format!(
@@ -211,9 +215,9 @@ impl GitManager {
         // Try origin/main first, then origin/master
         for branch in &["origin/main", "origin/master"] {
             let output = Command::new("git")
-                .args(&["-C"])
+                .args(["-C"])
                 .arg(repo_path)
-                .args(&["reset", "--hard", branch])
+                .args(["reset", "--hard", branch])
                 .output();
 
             if let Ok(output) = output {
@@ -223,7 +227,9 @@ impl GitManager {
             }
         }
 
-        Err(RexerError::GitError("Failed to reset to default branch".to_string()))
+        Err(RexerError::GitError(
+            "Failed to reset to default branch".to_string(),
+        ))
     }
 
     fn checkout_reference(repo: &Repository, reference: &str) -> Result<()> {
