@@ -501,3 +501,59 @@ fn test_quiet_mode() {
         .assert()
         .success();
 }
+
+/// Test with the exact same configuration that caused the segfault issue #7
+#[test]
+fn test_install_with_redmica_repo_segfault_regression() {
+    let temp_dir = TempDir::new().unwrap();
+
+    // Use the exact same configuration as the user reported in issue #7
+    let config_content = r#"plugins:
+  - name: redmine_issues_panel
+    github:
+      repo: "redmica/redmine_issues_panel"
+      branch: "master"
+
+themes:
+"#;
+
+    let config_path = temp_dir.path().join(".extensions.yml");
+    fs::write(&config_path, config_content).unwrap();
+
+    // Create necessary directories
+    fs::create_dir_all(temp_dir.path().join("plugins")).unwrap();
+
+    // Create README file in plugins directory like the user has
+    fs::write(temp_dir.path().join("plugins").join("README"), "").unwrap();
+
+    // First install - this should work without segfault
+    let mut cmd = Command::cargo_bin("rex").unwrap();
+    cmd.arg("install")
+        .current_dir(&temp_dir)
+        .timeout(std::time::Duration::from_secs(120))
+        .env("RUST_LOG", "debug") // Enable debug logging
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("Installing redmine_issues_panel"))
+        .stdout(predicate::str::contains("Installed 1 extensions"));
+
+    // Verify plugin was installed
+    let plugin_path = temp_dir.path().join("plugins").join("redmine_issues_panel");
+    assert!(plugin_path.exists());
+
+    // Verify lock file was created
+    let lock_path = temp_dir.path().join(".extensions.lock");
+    assert!(lock_path.exists());
+
+    let lock_content = fs::read_to_string(&lock_path).unwrap();
+    let lock_data: serde_json::Value = serde_json::from_str(&lock_content).unwrap();
+    assert!(lock_data["extensions"][0]["commit_hash"].is_string());
+
+    // Second run should not segfault either - this was working in the original issue
+    let mut cmd2 = Command::cargo_bin("rex").unwrap();
+    cmd2.current_dir(&temp_dir)
+        .timeout(std::time::Duration::from_secs(60))
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("Extensions are up to date"));
+}
