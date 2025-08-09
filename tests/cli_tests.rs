@@ -346,6 +346,75 @@ themes: []
         .stdout(predicate::str::contains("Updating test_plugin"));
 }
 
+#[test]
+fn test_update_all_extensions() {
+    let temp_dir = TempDir::new().unwrap();
+
+    // First install some extensions
+    let config_content = r#"plugins:
+  - name: test_plugin
+    github:
+      repo: "octocat/Hello-World"
+      branch: "master"
+
+themes: []
+"#;
+
+    let config_path = temp_dir.path().join(".extensions.yml");
+    fs::write(&config_path, config_content).unwrap();
+
+    // Create necessary directories
+    fs::create_dir_all(temp_dir.path().join("plugins")).unwrap();
+    fs::create_dir_all(temp_dir.path().join("public").join("themes")).unwrap();
+
+    // Install first
+    let mut cmd = Command::cargo_bin("rex").unwrap();
+    cmd.arg("install")
+        .current_dir(&temp_dir)
+        .timeout(std::time::Duration::from_secs(60))
+        .assert()
+        .success();
+
+    // Read lock file before update
+    let lock_path = temp_dir.path().join(".extensions.lock");
+
+    // Then update all extensions (no specific extension specified)
+    let mut cmd = Command::cargo_bin("rex").unwrap();
+    cmd.arg("update")
+        .current_dir(&temp_dir)
+        .timeout(std::time::Duration::from_secs(60))
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("Updating test_plugin"));
+
+    // Verify lock file still exists and was potentially updated
+    assert!(lock_path.exists());
+    let lock_content_after = fs::read_to_string(&lock_path).unwrap();
+
+    // The content should be valid JSON
+    let _lock_data: serde_json::Value = serde_json::from_str(&lock_content_after).unwrap();
+}
+
+#[test]
+fn test_update_nonexistent_extension() {
+    let temp_dir = TempDir::new().unwrap();
+
+    // Create a lock file with one extension
+    let lock_content = r#"{"extensions": [{"name": "test_plugin", "extension_type": "Plugin", "source": {"github": {"repo": "octocat/Hello-World", "branch": "master"}}, "commit_hash": "abc123", "installed_at": "2023-01-01T00:00:00Z"}]}"#;
+    let lock_path = temp_dir.path().join(".extensions.lock");
+    fs::write(&lock_path, lock_content).unwrap();
+
+    // Try to update non-existent extension - should still succeed but do nothing
+    let mut cmd = Command::cargo_bin("rex").unwrap();
+    cmd.arg("update")
+        .arg("nonexistent_extension")
+        .current_dir(&temp_dir)
+        .timeout(std::time::Duration::from_secs(30))
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("No extensions to update"));
+}
+
 /// Reinstall tests
 #[test]
 fn test_reinstall_no_lock_file() {
