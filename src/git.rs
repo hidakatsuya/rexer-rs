@@ -6,6 +6,12 @@ use std::path::Path;
 
 pub struct GitManager;
 
+pub struct GitResource {
+    pub branch: Option<String>,
+    pub tag: Option<String>,
+    pub commit: Option<String>,
+}
+
 impl GitManager {
     pub fn clone_or_update(source: &Source, destination: &Path) -> Result<String> {
         if destination.exists() {
