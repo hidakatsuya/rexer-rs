@@ -5,6 +5,9 @@ on:
     types: [published]
   workflow_dispatch:
 
+permissions:
+  contents: write
+
 env:
   CARGO_TERM_COLOR: always
 
@@ -43,10 +46,10 @@ jobs:
         if [ "${{ matrix.os }}" = "ubuntu-latest" ]; then
           strip target/${{ matrix.target }}/release/${{ matrix.artifact_name }}
         fi
-        cp target/${{ matrix.target }}/release/${{ matrix.artifact_name }} ${{ matrix.asset_name }}
+        cp target/${{ matrix.target }}/release/${{ matrix.artifact_name }} rex
     
     - name: Create tarball
-      run: tar -czf ${{ matrix.asset_name }}.tar.gz ${{ matrix.asset_name }}
+      run: tar -czf ${{ matrix.asset_name }}.tar.gz rex
     
     - name: Upload binary to release
       env:
