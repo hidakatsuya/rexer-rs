@@ -31,8 +31,7 @@ colored = "2.0"
 tempfile = "3.8"
 chrono = { version = "0.4", features = ["serde"] }
 
-[features]
-vendored-openssl = ["git2/vendored-openssl", "reqwest/native-tls-vendored"]
+
 
 [dev-dependencies]
 tempfile = "3.8"
