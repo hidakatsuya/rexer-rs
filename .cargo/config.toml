@@ -1,0 +1,17 @@
+# Cargo configuration for platform-specific build settings
+
+# For macOS builds, enable static OpenSSL linking to avoid dependency
+# on system OpenSSL installations that may not be found
+[target.x86_64-apple-darwin]
+rustflags = []
+
+[target.x86_64-apple-darwin.env]
+OPENSSL_STATIC = "1"
+OPENSSL_VENDORED = "1"
+
+[target.aarch64-apple-darwin]
+rustflags = []
+
+[target.aarch64-apple-darwin.env]
+OPENSSL_STATIC = "1"
+OPENSSL_VENDORED = "1"
