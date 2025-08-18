@@ -40,6 +40,9 @@ jobs:
     
     - name: Build
       run: cargo build --release --target ${{ matrix.target }}
+      env:
+        OPENSSL_STATIC: ${{ matrix.os == 'macos-latest' && '1' || '' }}
+        OPENSSL_VENDORED: ${{ matrix.os == 'macos-latest' && '1' || '' }}
     
     - name: Prepare binary
       run: |
