@@ -1,4 +1,8 @@
+use std::path::Path;
+
 use serde::{Deserialize, Serialize};
+
+use crate::git::GitManager;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Extension {
@@ -7,28 +11,74 @@ pub struct Extension {
     pub source: Source,
 }
 
+impl Extension {
+    pub fn load(&self, path: &Path) -> Result<()> {
+        if let Some(git) = self.source.git() {
+            GitManager::clone_or_update(source, destination)
+            OK(())
+        }
+
+        if let Some(github) = self.source.github() {
+            // Load extension from GitHub source
+            OK(())
+        }
+    }
+}
+
+trait SourceLoader {
+    fn load(&self, path: &Path) -> Result<()>;
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Git {
+    pub url: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub branch: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub tag: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub commit: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct GitHub {
+    pub repo: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub branch: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub tag: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub commit: Option<String>,
+}
+
+impl GitHub {
+    pub fn url(&self) -> String {
+        format!("https://github.com/{}.git", self.repo)
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum Source {
     #[serde(rename = "git")]
-    Git {
-        url: String,
-        #[serde(skip_serializing_if = "Option::is_none")]
-        branch: Option<String>,
-        #[serde(skip_serializing_if = "Option::is_none")]
-        tag: Option<String>,
-        #[serde(skip_serializing_if = "Option::is_none")]
-        commit: Option<String>,
-    },
+    Git(Git),
     #[serde(rename = "github")]
-    GitHub {
-        repo: String,
-        #[serde(skip_serializing_if = "Option::is_none")]
-        branch: Option<String>,
-        #[serde(skip_serializing_if = "Option::is_none")]
-        tag: Option<String>,
-        #[serde(skip_serializing_if = "Option::is_none")]
-        commit: Option<String>,
-    },
+    GitHub(GitHub),
+}
+
+impl Source {
+    pub fn git(&self) -> Option<&Git> {
+        match self {
+            Source::Git(git) => Some(git),
+            _ => None,
+        }
+    }
+
+    pub fn github(&self) -> Option<&GitHub> {
+        match self {
+            Source::GitHub(github) => Some(github),
+            _ => None,
+        }
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -66,38 +116,4 @@ pub struct LockedExtension {
     pub source: Source,
     pub commit_hash: Option<String>,
     pub installed_at: String,
-}
-
-impl Source {
-    pub fn full_url(&self) -> String {
-        match self {
-            Source::Git { url, .. } => url.clone(),
-            Source::GitHub { repo, .. } => {
-                format!("https://github.com/{repo}.git")
-            }
-        }
-    }
-
-    pub fn reference(&self) -> Option<String> {
-        match self {
-            Source::Git {
-                branch,
-                tag,
-                commit,
-                ..
-            } => branch
-                .clone()
-                .or_else(|| tag.clone())
-                .or_else(|| commit.clone()),
-            Source::GitHub {
-                branch,
-                tag,
-                commit,
-                ..
-            } => branch
-                .clone()
-                .or_else(|| tag.clone())
-                .or_else(|| commit.clone()),
-        }
-    }
 }
