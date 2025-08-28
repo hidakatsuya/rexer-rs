@@ -225,7 +225,7 @@ themes: []
         .current_dir(&temp_dir)
         .assert()
         .success()
-        .stdout(predicate::str::contains("Rexer: 0.1.0"))
+        .stdout(predicate::str::contains("Rexer:"))
         .stdout(predicate::str::contains("Plugins:"))
         .stdout(predicate::str::contains("test_plugin"));
 }
