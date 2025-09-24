@@ -21,9 +21,6 @@ pub enum RexerError {
     #[error("IO error: {0}")]
     IoError(#[from] std::io::Error),
 
-    #[error("Git error: {0}")]
-    Git2Error(#[from] git2::Error),
-
     #[error("JSON error: {0}")]
     JsonError(#[from] serde_json::Error),
 
