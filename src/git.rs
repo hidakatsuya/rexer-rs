@@ -104,9 +104,9 @@ impl GitManager {
             return Ok(());
         }
 
-        // Try remote branch with origin prefix
+        // Try remote branch - first check if local branch exists, if so, just switch to it
         let remote_branch = format!("origin/{reference}");
-        if Self::run_git_command_status(&["checkout", "-b", reference, &remote_branch], Some(repo_path)).is_ok() {
+        if Self::run_git_command_status(&["checkout", "-B", reference, &remote_branch], Some(repo_path)).is_ok() {
             return Ok(());
         }
 
