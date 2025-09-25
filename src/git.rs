@@ -6,6 +6,12 @@ use std::process::Command;
 
 pub struct GitManager;
 
+pub struct GitResource {
+    pub branch: Option<String>,
+    pub tag: Option<String>,
+    pub commit: Option<String>,
+}
+
 impl GitManager {
     /// Run a git command in the specified directory and return the output
     fn run_git_command(args: &[&str], working_dir: Option<&Path>) -> Result<String> {
