@@ -63,6 +63,7 @@ rex install
 
 ## Commands
 
+- `rex` - Same as `rex install`
 - `rex init` - Create a new .extensions.yml file
 - `rex install` - Install extensions defined in .extensions.yml (compares config with lock file)
 - `rex uninstall` - Uninstall all extensions
