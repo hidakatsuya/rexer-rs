@@ -43,22 +43,18 @@ This creates a `.extensions.yml` file where you can define your extensions:
 plugins:
   # Example plugin from GitHub
   - name: redmine_issues_panel
-    github:
-      repo: "redmica/redmine_issues_panel"
-      tag: "v1.0.2"
+    github: { repo: "redmica/redmine_issues_panel", tag: "v1.0.2" }
 
 themes:
   # Example theme from Git repository  
   - name: bleuclair_theme
-    git:
-      url: "https://github.com/farend/redmine_theme_farend_bleuclair.git"
-      branch: "master"
+    git: { url: "https://github.com/farend/redmine_theme_farend_bleuclair.git" }
 ```
 
 Then install the extensions:
 
 ```bash
-rex install
+rex install # or rex
 ```
 
 ## Commands
