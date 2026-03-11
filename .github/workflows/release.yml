@@ -1,9 +1,15 @@
 name: Release
 
 on:
-  release:
-    types: [published]
+  push:
+    tags:
+      - "v*"
   workflow_dispatch:
+    inputs:
+      tag:
+        description: "Tag to build and upload to a draft release"
+        required: true
+        type: string
 
 permissions:
   contents: write
@@ -12,7 +18,33 @@ env:
   CARGO_TERM_COLOR: always
 
 jobs:
+  prepare-release:
+    runs-on: ubuntu-latest
+    outputs:
+      tag: ${{ steps.context.outputs.tag }}
+    steps:
+      - id: context
+        env:
+          TAG: ${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref_name }}
+        run: echo "tag=${TAG}" >> "${GITHUB_OUTPUT}"
+
+      - name: Ensure draft release exists
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ steps.context.outputs.tag }}
+        run: |
+          if draft_state="$(gh release view "${TAG}" --json isDraft --jq '.isDraft' 2>/dev/null)"; then
+            if [ "${draft_state}" != "true" ]; then
+              echo "Release ${TAG} is already published. Immutable releases cannot be modified." >&2
+              exit 1
+            fi
+            exit 0
+          fi
+
+          gh release create "${TAG}" --draft --generate-notes --verify-tag
+
   build-and-upload:
+    needs: prepare-release
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
@@ -28,6 +60,8 @@ jobs:
 
     steps:
       - uses: actions/checkout@08eba0b27e820071cde6df949e0beb9ba4906955 # v4.3.0
+        with:
+          ref: ${{ needs.prepare-release.outputs.tag }}
 
       - name: Install Rust target
         run: rustup target add ${{ matrix.target }}
@@ -51,15 +85,9 @@ jobs:
       - name: Create tarball
         run: tar -czf ${{ matrix.asset_name }}.tar.gz rex
 
-      - if: github.event_name == 'release'
-        name: Upload binary to release
+      - name: Upload binary to draft release
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ needs.prepare-release.outputs.tag }}
         run: |
-          gh release upload ${{ github.ref_name }} ${{ matrix.asset_name }}.tar.gz --clobber
-
-      - if: github.event_name == 'workflow_dispatch'
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
-        with:
-          name: ${{ matrix.asset_name }}
-          path: ${{ matrix.asset_name }}.tar.gz
+          gh release upload "${TAG}" ${{ matrix.asset_name }}.tar.gz --clobber
